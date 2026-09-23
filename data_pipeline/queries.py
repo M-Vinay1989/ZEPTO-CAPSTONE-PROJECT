@@ -1,13 +1,13 @@
 """
-Module 1: SQL Queries & Pandas Integration Component
-Defines, executes, and formats 5 mandatory SQL queries demonstrating key SQL clauses
-and pandas pd.read_sql() integration.
+SQL Queries module for running required SQL statements against the SQLite database
+and loading results using pandas.read_sql().
 """
 
 import sqlite3
 import pandas as pd
 from database import DEFAULT_DB_PATH, get_connection
 
+# Dictionary containing 5 mandatory SQL queries demonstrating key SQL clauses
 QUERIES = {
     "query_1_where": {
         "description": "High Rated Books (Rating >= 4)",
@@ -56,29 +56,24 @@ QUERIES = {
 }
 
 def execute_sql_query(query_key: str, db_path: str = DEFAULT_DB_PATH) -> pd.DataFrame:
-    """
-    Executes a named SQL query against SQLite database using pd.read_sql().
-    """
+    """Execute a single named query using pandas pd.read_sql()."""
     if query_key not in QUERIES:
-        raise KeyError(f"Query key '{query_key}' not defined.")
+        raise KeyError(f"Query '{query_key}' is not defined.")
 
     conn = get_connection(db_path)
     try:
         sql = QUERIES[query_key]["sql"]
-        df = pd.read_sql(sql, conn)
-        return df
+        return pd.read_sql(sql, conn)
     finally:
         conn.close()
 
 def execute_all_queries(db_path: str = DEFAULT_DB_PATH) -> dict:
-    """
-    Executes all 5 defined SQL queries and returns a dictionary of resulting DataFrames.
-    """
+    """Execute all 5 SQL queries and return DataFrames dictionary."""
     results = {}
     conn = get_connection(db_path)
     try:
         for key, info in QUERIES.items():
-            print(f"[INFO] Executing Query: {info['description']}")
+            print(f"[Info] Executing SQL: {info['description']}")
             df = pd.read_sql(info["sql"], conn)
             results[key] = {
                 "description": info["description"],
@@ -91,8 +86,7 @@ def execute_all_queries(db_path: str = DEFAULT_DB_PATH) -> dict:
     return results
 
 if __name__ == "__main__":
-    res = execute_all_queries()
-    for qname, qdata in res.items():
-        print(f"\n--- {qdata['description']} ---")
-        print("SQL:\n", qdata["sql"].strip())
-        print("Result Sample (first 3 rows):\n", qdata["data"].head(3))
+    query_outputs = execute_all_queries()
+    for name, res in query_outputs.items():
+        print(f"\n--- {res['description']} ---")
+        print(res["data"].head(3))
