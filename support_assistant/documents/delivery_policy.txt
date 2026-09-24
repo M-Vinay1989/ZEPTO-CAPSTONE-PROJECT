@@ -1,0 +1,15 @@
+[DISCLAIMER: This is a synthetic demonstration document created for the Zepto Data & AI Platform capstone project. It is NOT an official Zepto policy.]
+
+ZEPTO CUSTOMER SUPPORT POLICY: DELIVERY
+
+1. Delivery Timings & Promises
+Zepto aims to deliver orders within 10 to 15 minutes in supported hyper-local delivery zones. Operating hours for quick delivery are from 6:00 AM to 1:00 AM daily. Delivery estimates shown in the app are calculated dynamically based on real-time traffic, weather conditions, and dark-store distance.
+
+2. Delayed Deliveries
+If an order is delayed beyond the estimated delivery time by more than 15 minutes due to unforeseen circumstances such as severe weather or extreme traffic, customers will receive an automated notification in the app. For delays exceeding 30 minutes, a compensation credit coupon of ₹50 will be credited to the user's Zepto Wallet automatically.
+
+3. Delivery Attempts & Failed Deliveries
+Our delivery partner will make up to 2 contact attempts via phone call upon arrival at the specified delivery address. If the customer is unreachable after 5 minutes of arrival, the order will be marked as undeliverable and returned to the local hub. Undelivered orders containing non-perishable items will be refunded after deducting a nominal restocking fee of ₹30. Perishable grocery items cannot be refunded if delivery fails due to customer unreachability.
+
+4. Address Changes
+Customers can update or modify their delivery address only before the order status changes to "Out for Delivery". Once a rider has been dispatched, address modifications are not permitted to maintain delivery speed for all customers.
