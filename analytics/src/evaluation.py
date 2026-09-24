@@ -139,13 +139,12 @@ def evaluate_and_export(models_dict: dict, data_dict: dict, output_dir: str | Pa
 
 ## Executive Summary
 This module investigated the central analytical question: **"Can we predict a customer's annual spending from their demographic and purchasing characteristics?"**
-
-Using a reproducible customer dataset of 1,000 customer profiles, we built and evaluated two predictive regression models: a baseline **Linear Regression** model and a non-linear **Random Forest Regressor**.
+The analysis focuses on understanding which customer characteristics are associated with annual spending and evaluating how accurately spending can be predicted.
 
 ---
 
 ## 1. Dataset Overview & Cleaning
-- **Raw Observations**: 1,020 rows (1,000 unique customer profiles + 20 duplicate test rows).
+- **Raw Observations**: The raw dataset contains 1,020 rows representing 1,000 unique customer profiles, with 20 duplicate rows included to demonstrate data cleaning.
 - **Attributes**: Age, Income, Membership Years, Number of Purchases, Average Order Value, Discount Usage, Website Visits, Preferred Product Category.
 - **Target Variable**: `annual_spending` (Continuous numerical float, range $50.00 – $15,000.00+).
 - **Data Quality Actions**:
@@ -162,9 +161,8 @@ Using a reproducible customer dataset of 1,000 customer profiles, we built and e
 | **Linear Regression** | {results['linear_regression']['MAE']} | {results['linear_regression']['MSE']} | {results['linear_regression']['RMSE']} | {results['linear_regression']['R2']} |
 | **Random Forest Regressor** | {results['random_forest']['MAE']} | {results['random_forest']['MSE']} | {results['random_forest']['RMSE']} | {results['random_forest']['R2']} |
 
-### Key Observations:
-- **Random Forest Regressor** achieved an R² score of **{rf_r2}** (RMSE of ${rf_rmse}), outperforming the **Linear Regression** baseline (R² = **{lr_r2}**, RMSE = ${lr_rmse}).
-- The non-linear ensemble structure of Random Forest captured interaction effects between purchase count, average order value, and customer income more effectively.
+### Key Observations & Conclusion:
+- The Random Forest Regressor achieved an R² of {rf_r2} on the held-out test set. In this synthetic dataset, average order value, number of purchases, and income were among the most important predictive features. Results on real customer data may differ.
 
 ---
 

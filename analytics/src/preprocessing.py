@@ -55,15 +55,16 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
     Engineers domain-relevant features without target leakage:
     1. purchase_frequency: Purchases per membership year.
     2. visit_conversion_rate: Number of purchases per website visit.
+    Small constants (+0.1 and +1.0) are added to denominators to avoid division-by-zero errors when denominator is zero.
     """
     df_fe = df.copy()
 
-    # Feature 1: Purchase frequency (purchases per year of membership)
+    # Feature 1: Purchase frequency (small constant +0.1 prevents division-by-zero if membership_years is 0)
     df_fe["purchase_frequency"] = (
         df_fe["number_of_purchases"] / (df_fe["membership_years"] + 0.1)
     ).round(2)
 
-    # Feature 2: Visit conversion rate (purchases per visit)
+    # Feature 2: Visit conversion rate (small constant +1.0 prevents division-by-zero if website_visits is 0)
     df_fe["visit_conversion_rate"] = (
         df_fe["number_of_purchases"] / (df_fe["website_visits"] + 1.0)
     ).round(4)

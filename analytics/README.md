@@ -6,7 +6,7 @@ This module implements a complete customer analytics and regression modeling pip
 
 ## 1. Module Objective & Central Analytical Question
 
-- **Objective**: Build an end-to-end data analytics and predictive modeling workflow profiling customer demographics and predicting annual spending.
+- **Objective**: The analysis focuses on understanding which customer characteristics are associated with annual spending and evaluating how accurately spending can be predicted.
 - **Central Analytical Question**:
   > *"Can we predict a customer's annual spending from their demographic and purchasing characteristics?"*
 
@@ -18,7 +18,7 @@ This module implements a complete customer analytics and regression modeling pip
 [ Synthetic Customer Generator ] ──► analytics/data/customer_spending.csv
                  │
                  ▼ (src/data_loader.py)
-[ Data Loading & Profiling ] (1,000 profiles + 20 duplicate test rows)
+[ Data Loading & Profiling ] (1,020 raw rows -> 1,000 unique profiles)
                  │
                  ▼ (src/preprocessing.py)
 [ Data Cleaning & Imputation ] (Duplicate removal, invalid entry fix, median imputation)
@@ -40,7 +40,7 @@ This module implements a complete customer analytics and regression modeling pip
 ## 3. Dataset Overview & Features
 
 - **Source**: Synthetic customer dataset generated reproducibly (`seed=42`).
-- **Rows**: 1,020 rows (1,000 unique profiles + 20 injected duplicates for cleaning demonstration).
+- **Rows**: The raw dataset contains 1,020 rows representing 1,000 unique customer profiles, with 20 duplicate rows included to demonstrate data cleaning.
 - **Predictor Variables**:
   - `age`: Customer age in years (18–70)
   - `income`: Annual income in USD ($25,000–$130,000)
@@ -63,6 +63,7 @@ This module implements a complete customer analytics and regression modeling pip
 4. **Feature Engineering**:
    - `purchase_frequency`: `number_of_purchases / (membership_years + 0.1)`
    - `visit_conversion_rate`: `number_of_purchases / (website_visits + 1.0)`
+   *(Note: The small constants `+ 0.1` and `+ 1.0` help avoid division-by-zero errors when the denominator is zero).*
 5. **ColumnTransformer Preprocessing**:
    - Numerical features: `StandardScaler()`
    - Categorical features: `OneHotEncoder(handle_unknown='ignore')`
@@ -77,11 +78,13 @@ Two regression models were implemented and evaluated on the test dataset:
 1. **Linear Regression**: Baseline interpretable reference model.
 2. **Random Forest Regressor**: Non-linear ensemble model (`n_estimators=100`, `random_state=42`).
 
-### Evaluation Metrics Summary:
+### Evaluation Metrics & Performance Summary:
 - **MAE** (Mean Absolute Error): Average absolute magnitude of prediction errors in USD.
 - **MSE** (Mean Squared Error): Variance of prediction errors in USD².
 - **RMSE** (Root Mean Squared Error): Standard deviation of prediction errors in USD.
 - **R² Score** (Coefficient of Determination): Proportion of variance explained by model predictors.
+
+> **Key Finding**: The Random Forest Regressor achieved an R² of 0.9677 on the held-out test set. In this synthetic dataset, average order value, number of purchases, and income were among the most important predictive features. Results on real customer data may differ.
 
 ---
 
