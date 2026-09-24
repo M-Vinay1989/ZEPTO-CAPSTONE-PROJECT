@@ -1,20 +1,17 @@
 """
-Module 1: Automated Validation Suite
-Executes empirical quality, schema, SQL execution, and SQL vs Pandas JOIN equivalence checks.
+Validation module for running automated checks on dataset shape, types,
+database schema, foreign key enforcement, and SQL JOIN vs pd.merge equivalence.
 """
 
 import sqlite3
-import numpy as np
 import pandas as pd
 from database import DEFAULT_DB_PATH, get_connection, verify_foreign_keys_enabled
-from queries import QUERIES, execute_all_queries, execute_sql_query
+from queries import execute_all_queries
 
 GBP_TO_INR_RATE = 105.50
 
 def validate_dataframe(df: pd.DataFrame) -> dict:
-    """
-    Validates DataFrame rules for raw/scraped books data.
-    """
+    """Validate raw/cleaned DataFrame properties."""
     results = {}
 
     # Check 1: Books count >= 60
@@ -36,7 +33,7 @@ def validate_dataframe(df: pd.DataFrame) -> dict:
         "detail": f"Dtype = {df['price_gbp'].dtype}"
     }
 
-    # Check 4: rating is integer
+    # Check 4: rating integer
     results["rating_integer"] = {
         "status": pd.api.types.is_integer_dtype(df["rating"]),
         "detail": f"Dtype = {df['rating'].dtype}"
@@ -49,13 +46,13 @@ def validate_dataframe(df: pd.DataFrame) -> dict:
         "detail": f"Min rating = {df['rating'].min()}, Max rating = {df['rating'].max()}"
     }
 
-    # Check 6: in_stock is boolean
+    # Check 6: in_stock boolean
     results["in_stock_boolean"] = {
         "status": pd.api.types.is_bool_dtype(df["in_stock"]),
         "detail": f"Dtype = {df['in_stock'].dtype}"
     }
 
-    # Check 7: price_inr == price_gbp * 105.50 (within 0.01 margin)
+    # Check 7: price_inr == price_gbp * 105.50
     expected_inr = (df["price_gbp"] * GBP_TO_INR_RATE).round(2)
     inr_diff = (df["price_inr"] - expected_inr).abs().max()
     results["price_inr_conversion_correct"] = {
@@ -66,9 +63,7 @@ def validate_dataframe(df: pd.DataFrame) -> dict:
     return results
 
 def validate_database_schema(db_path: str = DEFAULT_DB_PATH) -> dict:
-    """
-    Validates database tables, PKs, FKs, and PRAGMA enforcement.
-    """
+    """Validate database tables, primary keys, foreign keys, and enforcement."""
     results = {}
     conn = get_connection(db_path)
     try:
@@ -87,14 +82,12 @@ def validate_database_schema(db_path: str = DEFAULT_DB_PATH) -> dict:
             "detail": f"Tables found: {tables}"
         }
 
-        # Check 10: Primary Keys
+        # Check 10: Primary Keys exist
         cursor.execute("PRAGMA table_info(categories);")
-        cat_info = cursor.fetchall()
-        cat_pk = any(col[5] > 0 for col in cat_info)
+        cat_pk = any(col[5] > 0 for col in cursor.fetchall())
 
         cursor.execute("PRAGMA table_info(books);")
-        books_info = cursor.fetchall()
-        books_pk = any(col[5] > 0 for col in books_info)
+        books_pk = any(col[5] > 0 for col in cursor.fetchall())
 
         results["primary_keys_exist"] = {
             "status": cat_pk and books_pk,
@@ -109,7 +102,7 @@ def validate_database_schema(db_path: str = DEFAULT_DB_PATH) -> dict:
             "detail": f"FK list: {fk_list}"
         }
 
-        # Check 12: FK enforcement active
+        # Check 12: Foreign Keys active
         fk_enforced = verify_foreign_keys_enabled(db_path)
         results["foreign_keys_enforced"] = {
             "status": fk_enforced,
@@ -121,9 +114,7 @@ def validate_database_schema(db_path: str = DEFAULT_DB_PATH) -> dict:
     return results
 
 def validate_sql_and_pandas_equivalence(db_path: str = DEFAULT_DB_PATH) -> dict:
-    """
-    Validates SQL queries, pd.read_sql execution, and in-memory pd.merge vs SQL JOIN equivalence.
-    """
+    """Validate SQL execution and compare SQL JOIN with in-memory pd.merge()."""
     results = {}
 
     # Check 13: 5 SQL queries execution
@@ -134,12 +125,12 @@ def validate_sql_and_pandas_equivalence(db_path: str = DEFAULT_DB_PATH) -> dict:
     }
 
     # Check 14: Required SQL clauses represented
-    represented_clauses = ["SELECT", "WHERE", "ORDER BY", "LIMIT", "DISTINCT", "BETWEEN", "JOIN"]
+    required_clauses = ["SELECT", "WHERE", "ORDER BY", "LIMIT", "DISTINCT", "BETWEEN", "JOIN"]
     all_sql_text = " ".join([q["sql"] for q in query_results.values()]).upper()
-    missing_clauses = [c for c in represented_clauses if c not in all_sql_text]
+    missing_clauses = [c for c in required_clauses if c not in all_sql_text]
     results["required_sql_clauses_represented"] = {
         "status": len(missing_clauses) == 0,
-        "detail": f"Represented: {represented_clauses} (Missing: {missing_clauses})"
+        "detail": f"Represented: {required_clauses} (Missing: {missing_clauses})"
     }
 
     # Check 15: JOIN query execution
@@ -149,18 +140,17 @@ def validate_sql_and_pandas_equivalence(db_path: str = DEFAULT_DB_PATH) -> dict:
         "detail": f"JOIN returned {len(join_df)} rows"
     }
 
-    # Check 16: pd.read_sql loading
+    # Check 16: pd.read_sql loading multiple tables
     conn = get_connection(db_path)
     try:
-        df1 = pd.read_sql("SELECT * FROM categories;", conn)
-        df2 = pd.read_sql("SELECT * FROM books;", conn)
+        df_cat = pd.read_sql("SELECT * FROM categories;", conn)
+        df_book = pd.read_sql("SELECT * FROM books;", conn)
         results["pd_read_sql_loaded_2_queries"] = {
-            "status": len(df1) > 0 and len(df2) > 0,
-            "detail": f"Loaded categories ({len(df1)} rows) and books ({len(df2)} rows)"
+            "status": len(df_cat) > 0 and len(df_book) > 0,
+            "detail": f"Loaded categories ({len(df_cat)} rows) and books ({len(df_book)} rows)"
         }
 
         # Check 17: SQL JOIN vs pd.merge Equivalence Test
-        # 17a. SQL JOIN result DataFrame (sorted by book_id)
         sql_join_query = """
         SELECT b.book_id, b.title, c.category_name, b.price_gbp, b.price_inr, b.rating, b.in_stock
         FROM books b
@@ -169,7 +159,7 @@ def validate_sql_and_pandas_equivalence(db_path: str = DEFAULT_DB_PATH) -> dict:
         """
         sql_join_df = pd.read_sql(sql_join_query, conn)
 
-        # 17b. In-memory pd.merge using raw books and categories DataFrames
+        # In-memory pd.merge using raw books and categories DataFrames
         raw_books_df = pd.read_sql("SELECT * FROM books;", conn)
         raw_cats_df = pd.read_sql("SELECT * FROM categories;", conn)
 
@@ -179,14 +169,12 @@ def validate_sql_and_pandas_equivalence(db_path: str = DEFAULT_DB_PATH) -> dict:
             on="category_id",
             how="inner"
         )
-        # Reorder columns and sort to match SQL JOIN output exact structure
         pandas_merged_df = pandas_merged_df[[
             "book_id", "title", "category_name", "price_gbp", "price_inr", "rating", "in_stock"
         ]].sort_values("book_id").reset_index(drop=True)
 
         sql_join_df = sql_join_df.sort_values("book_id").reset_index(drop=True)
 
-        # Equivalence check
         is_equivalent = sql_join_df.equals(pandas_merged_df)
 
         results["sql_join_vs_pd_merge_equivalent"] = {
@@ -199,9 +187,7 @@ def validate_sql_and_pandas_equivalence(db_path: str = DEFAULT_DB_PATH) -> dict:
     return results
 
 def run_full_validation(df_scraped: pd.DataFrame, db_path: str = DEFAULT_DB_PATH) -> dict:
-    """
-    Runs all validation checks and prints a formatted summary.
-    """
+    """Run complete validation suite and return results."""
     print("\n==================================================")
     print("RUNNING AUTOMATED VALIDATION SUITE")
     print("==================================================")
@@ -232,5 +218,5 @@ if __name__ == "__main__":
     from scraper import scrape_books
     from database import save_to_database
     df = scrape_books()
-    db_path = save_to_database(df)
-    run_full_validation(df, db_path)
+    db = save_to_database(df)
+    run_full_validation(df, db)

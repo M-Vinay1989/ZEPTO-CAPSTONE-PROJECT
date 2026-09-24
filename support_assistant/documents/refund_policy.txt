@@ -1,0 +1,17 @@
+[DISCLAIMER: This is a synthetic demonstration document created for the Zepto Data & AI Platform capstone project. It is NOT an official Zepto policy.]
+
+ZEPTO CUSTOMER SUPPORT POLICY: REFUNDS
+
+1. Refund Eligibility & Conditions
+Refunds are eligible for items that arrive damaged, expired, spoiled, or missing from the delivered order package. Customers must raise a refund request within 24 hours of delivery through the "Help & Support" section in the Zepto app, uploading a clear photograph of damaged or expired items.
+
+2. Damaged or Missing Items
+If an item is missing from the package or delivered in a damaged state, Zepto provides an instant replacement if available within 15 minutes, or an immediate full refund to the original payment method or Zepto Wallet as per customer preference.
+
+3. Refund Processing Timelines
+- Zepto Wallet Refunds: Processed instantly upon approval (within 15 minutes).
+- UPI / Credit Card / Debit Card Refunds: Processed within 3 to 5 business days depending on the customer's bank network.
+- Net Banking Refunds: Processed within 5 to 7 business days.
+
+4. Non-Refundable Items
+Perishable items (such as fresh fruits, vegetables, and dairy products) that were delivered in good condition cannot be returned or refunded after delivery confirmation due to hygiene and food safety standards.

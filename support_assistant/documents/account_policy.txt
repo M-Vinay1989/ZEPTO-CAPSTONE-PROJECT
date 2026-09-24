@@ -1,0 +1,15 @@
+[DISCLAIMER: This is a synthetic demonstration document created for the Zepto Data & AI Platform capstone project. It is NOT an official Zepto policy.]
+
+ZEPTO CUSTOMER SUPPORT POLICY: ACCOUNTS & SUPPORT
+
+1. Account Creation & Security
+Customers create a Zepto account using a verified mobile phone number via One-Time Password (OTP) verification. Account security is paramount; customers must not share OTP codes or account credentials with anyone. Zepto support representatives will never ask for your account password or OTP.
+
+2. Profile Updates & Saved Locations
+Users can manage saved addresses, contact phone numbers, and profile details in the "My Profile" tab of the mobile app. To transfer account history or change a registered mobile number, security verification via primary email is required.
+
+3. Account Deletion & Data Privacy
+Customers can request permanent account deletion by selecting "Delete Account" under Account Settings. Account deletion erases personal saved addresses and payment tokens, while order transaction history is retained as required by financial auditing laws for 7 years.
+
+4. Customer Support Channels
+Support is accessible 24/7 through the in-app chat assistant under "Help & Support". Email support is available at support@zepto-demo.com with guaranteed response within 12 hours.

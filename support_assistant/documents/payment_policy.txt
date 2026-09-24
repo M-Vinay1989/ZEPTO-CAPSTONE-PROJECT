@@ -1,0 +1,20 @@
+[DISCLAIMER: This is a synthetic demonstration document created for the Zepto Data & AI Platform capstone project. It is NOT an official Zepto policy.]
+
+ZEPTO CUSTOMER SUPPORT POLICY: PAYMENTS
+
+1. Supported Payment Options
+Zepto accepts multiple payment options including:
+- Credit Cards and Debit Cards (Visa, Mastercard, RuPay, Amex)
+- Unified Payments Interface (UPI via Google Pay, PhonePe, Paytm, BHIM)
+- Net Banking across major banks
+- E-Wallets (Zepto Wallet, Paytm Wallet, Mobikwik)
+- Cash on Delivery (COD) for orders below ₹1,000 in designated pin codes.
+
+2. Payment Failures & Pending Transactions
+If money is debited from your bank account during a failed transaction attempt, the bank usually auto-reverses the amount within 24 to 48 hours. If the amount is not credited back within 48 hours, customers can raise a ticket with the transaction reference number (UTR) under App Support.
+
+3. Duplicate Charges
+In the event of a double debit or duplicate charge for a single order ID, Zepto's automated billing system detects the anomaly and initiates a full reversal of the duplicate charge within 2 business days.
+
+4. Payment Confirmation
+Order placement is confirmed only after receiving successful payment authorization from the payment gateway (except for COD orders).

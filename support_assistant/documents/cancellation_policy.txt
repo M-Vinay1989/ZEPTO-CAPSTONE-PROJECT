@@ -1,0 +1,12 @@
+[DISCLAIMER: This is a synthetic demonstration document created for the Zepto Data & AI Platform capstone project. It is NOT an official Zepto policy.]
+
+ZEPTO CUSTOMER SUPPORT POLICY: CANCELLATIONS
+
+1. Cancellation Before Dispatch
+Customers can cancel their order free of charge within 60 seconds of placing the order, or at any time before the dark-store staff begins packing the items. 100% of the payment amount will be refunded immediately to the customer's wallet or original payment mode.
+
+2. Cancellation After Packing / Dispatch
+Once packing has commenced or the delivery rider has been assigned and dispatched, cancellation is subject to a cancellation fee of ₹40 to cover handling and rider compensation costs. The remaining balance will be refunded to the original payment method.
+
+3. Merchant / Platform Cancellations
+In rare cases where an item becomes out of stock after order placement or delivery cannot be fulfilled due to severe localized disruptions, Zepto reserves the right to cancel the order. Customers will receive a 100% full refund plus a ₹50 apology credit coupon.
