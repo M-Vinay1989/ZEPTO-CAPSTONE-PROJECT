@@ -1,0 +1,20 @@
+================================================================================
+ZEPTO CUSTOMER SUPPORT POLICY: ORDER TRACKING & DELIVERY PARTNERS
+================================================================================
+
+1. Live GPS Tracking
+
+- Once your order is packed and dispatched from the local dark store, live GPS tracking becomes available in the Zepto mobile app.
+- You can track your delivery partner's real-time location on the interactive map from dispatch until doorstep arrival.
+
+2. Delivery Partner Contact
+
+- The name, photo, and direct phone number of your assigned delivery partner are displayed on the order tracking screen once dispatched.
+- You may call or send delivery instructions (e.g., 'Leave with security', 'Ring bell twice') directly via the in-app chat.
+
+3. Estimated Time of Arrival (ETA) Updates
+
+- ETA is calculated dynamically based on store packing status, distance, traffic, and weather conditions.
+- If delivery is delayed beyond the initial ETA by more than 10 minutes, an automated notification is sent with an updated ETA and a complimentary delivery credit.
+
+[DISCLAIMER: This document is synthetic policy context prepared for Zepto Support Assistant capstone evaluation.]

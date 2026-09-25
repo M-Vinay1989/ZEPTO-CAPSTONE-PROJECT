@@ -5,11 +5,20 @@ with fallback to scikit-learn TfidfVectorizer if SentenceTransformers model load
 """
 
 import sys
+import os
 import re
 import pickle
 from pathlib import Path
 from typing import List
 import numpy as np
+
+# Support unpickling of custom stemmer across direct and module import paths
+if "support_assistant.src.embeddings" not in sys.modules:
+    sys.modules["support_assistant.src.embeddings"] = sys.modules[__name__]
+
+# Automatically use deterministic TF-IDF backend if specified or on Windows platforms where PyTorch C++ DLL loading fails
+if sys.platform == "win32" and "FORCE_TFIDF" not in os.environ:
+    os.environ["FORCE_TFIDF"] = "1"
 
 _MODEL_INSTANCE = None
 _TFIDF_VECTORIZER = None
@@ -47,6 +56,8 @@ def policy_stemmer(text: str) -> List[str]:
             tokens.append("fail")
         elif w in {"account", "accounts"}:
             tokens.append("account")
+        elif w in {"cod", "cash"}:
+            tokens.append("cod")
         else:
             for suffix in ["ing", "ed", "es", "s"]:
                 if w.endswith(suffix) and len(w) - len(suffix) >= 3:
@@ -56,9 +67,10 @@ def policy_stemmer(text: str) -> List[str]:
     return tokens
 
 def create_tfidf_vectorizer():
-    """Creates a TfidfVectorizer tuned with policy stemming and unigram+bigram ngrams."""
+    """Creates a TfidfVectorizer tuned with max_features=384 and policy stemming."""
     from sklearn.feature_extraction.text import TfidfVectorizer
     return TfidfVectorizer(
+        max_features=384,
         tokenizer=policy_stemmer,
         ngram_range=(1, 2),
         sublinear_tf=True,
@@ -66,14 +78,20 @@ def create_tfidf_vectorizer():
     )
 
 def get_embedding_model():
-    """Lazy-loads lightweight SentenceTransformer model."""
+    """Lazy-loads lightweight SentenceTransformer model with graceful TF-IDF fallback."""
     global _MODEL_INSTANCE
     if _MODEL_INSTANCE is None:
+        if os.environ.get("FORCE_TFIDF", "0") == "1":
+            print("[Embeddings] Embedding backend: TF-IDF vectorizer (Deterministic zero-cost)")
+            _MODEL_INSTANCE = "fallback"
+            return _MODEL_INSTANCE
+
         try:
+            import sentence_transformers
             from sentence_transformers import SentenceTransformer
             print(f"[Embeddings] Loading local SentenceTransformer model '{MODEL_NAME}'...")
             _MODEL_INSTANCE = SentenceTransformer(MODEL_NAME)
-        except Exception as err:
+        except (Exception, OSError, ImportError, SystemError, BaseException) as err:
             reason = str(err).split('\n')[0]
             print(f"[Embeddings] Embedding backend: TF-IDF fallback (Reason: {reason})")
             _MODEL_INSTANCE = "fallback"
@@ -82,6 +100,7 @@ def get_embedding_model():
 def generate_embeddings(texts: List[str], is_query: bool = False) -> np.ndarray:
     """
     Generates L2-normalized float32 vector embeddings for a list of text strings.
+    Guarantees fixed 384 dimensions for ChromaDB vector store compatibility.
     """
     global _TFIDF_VECTORIZER
 
@@ -92,10 +111,12 @@ def generate_embeddings(texts: List[str], is_query: bool = False) -> np.ndarray:
 
     if isinstance(model, str) and model == "fallback":
         if is_query:
-            # Try loading saved TF-IDF vectorizer if available
             if _TFIDF_VECTORIZER is None and TFIDF_CACHE_PATH.exists():
-                with open(TFIDF_CACHE_PATH, "rb") as f:
-                    _TFIDF_VECTORIZER = pickle.load(f)
+                try:
+                    with open(TFIDF_CACHE_PATH, "rb") as f:
+                        _TFIDF_VECTORIZER = pickle.load(f)
+                except Exception:
+                    _TFIDF_VECTORIZER = None
             
             if _TFIDF_VECTORIZER is not None:
                 matrix = _TFIDF_VECTORIZER.transform(texts).toarray().astype(np.float32)
@@ -106,15 +127,15 @@ def generate_embeddings(texts: List[str], is_query: bool = False) -> np.ndarray:
             _TFIDF_VECTORIZER = create_tfidf_vectorizer()
             matrix = _TFIDF_VECTORIZER.fit_transform(texts).toarray().astype(np.float32)
             
-            # Save vectorizer for queries
             TFIDF_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
             with open(TFIDF_CACHE_PATH, "wb") as f:
                 pickle.dump(_TFIDF_VECTORIZER, f)
 
-        # Pad to 384 dimensions if fewer features exist for consistency
+        # Enforce exact 384 dimensions
         if matrix.shape[1] < 384:
             padding = np.zeros((matrix.shape[0], 384 - matrix.shape[1]), dtype=np.float32)
             matrix = np.hstack([matrix, padding])
+
         embeddings = matrix
     else:
         embeddings = model.encode(texts, convert_to_numpy=True, show_progress_bar=False).astype(np.float32)
