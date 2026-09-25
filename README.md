@@ -11,7 +11,7 @@ The **Zepto Data & AI Platform** is a multi-module engineering and data science 
 The project is structured into three primary modules:
 1. **Data Pipeline**: Automated web scraping, data cleaning, relational SQLite database storage, SQL analytical querying, and pandas-based validation.
 2. **Titanic Analytics Pipeline & Predictive Modeling**: Dataset profiling via Seaborn Titanic dataset, missing-value strategy, univariate EDA (Age & Fare skewness), bivariate survival rates with boolean masking, exact 6-column correlation heatmap, stratified train/test split, train-only ColumnTransformer preprocessing, classification suite (Logistic Regression, Decision Tree, Random Forest), class imbalance experiment (Baseline, class_weight, SMOTE train-fold ONLY), Random Forest GridSearch with OOB score evaluation, Fare multivariate linear regression side-task with residual heteroscedasticity analysis, and full joblib pipeline export.
-3. **Grounded Support Assistant**: A Retrieval-Augmented Generation (RAG) customer support assistant featuring text chunking, vector search, domain typo normalization, and zero-hallucination refusal guardrails.
+3. **Grounded Support Assistant**: A Retrieval-Augmented Generation (RAG) customer support assistant featuring **ChromaDB** vector store database, **LangGraph** StateGraph executable workflow engine, deterministic **MOCK_LLM** generator (no paid API credentials required), **FastAPI** web endpoints (`POST /ask`, `GET /health`), domain typo normalization, 9 realistic support policy documents, and zero-hallucination refusal guardrails.
 
 > **Disclaimer**: The policy documents in `support_assistant/documents/` are **synthetic project data** created solely for demonstration purposes. They do **NOT** represent real Zepto live infrastructure or official Zepto policies.
 
@@ -40,9 +40,9 @@ Seaborn Titanic       Single Load & Fallback            EDA & Preprocessing     
 ========================================================================================
                            3. GROUNDED SUPPORT ASSISTANT
 ========================================================================================
-Policy Docs          Chunking & Indexing               Vector Retrieval           Grounded Response
-(Synthetic .txt) ──► (FAISS / TF-IDF Fallback)  ──► (Top-k Context Search)  ──► (Source Attribution /
-                                                                                 Refusal Guardrail)
+Knowledge Base        LangGraph Workflow                ChromaDB Search            FastAPI / CLI Output
+(9 Policy Docs)   ──► (Normalize -> Retrieve ->     ──► (Persistent HNSW     ──► (POST /ask, MOCK_LLM,
+                       Generate Nodes)                   Vector Store)              Source Attribution)
 ========================================================================================
 ```
 
@@ -79,26 +79,33 @@ zepto-data-ai-platform/
 │       ├── imbalance_comparison.csv     # Class imbalance experiment metrics
 │       └── regression_metrics.csv       # Fare regression metrics
 └── support_assistant/                   # Module 3: Grounded GenAI Support Assistant
-    ├── README.md                        # Module 3 documentation
+    ├── README.md                        # Module 3 technical documentation & architecture guide
     ├── src/
-    │   ├── main.py                      # Interactive CLI & build entry point
-    │   ├── document_loader.py           # Policy document loader
+    │   ├── api.py                       # FastAPI web application (POST /ask, GET /health)
+    │   ├── assistant.py                 # Grounded response synthesis & refusal guardrails
     │   ├── chunker.py                   # Document text chunker
-    │   ├── embeddings.py                # Embedding generator (with TF-IDF fallback)
-    │   ├── vector_store.py              # FAISS vector store manager
-    │   ├── retriever.py                 # Inner-product similarity search retriever
-    │   ├── assistant.py                 # Grounded response synthesis & refusal rules
-    │   └── evaluation.py                # Benchmark evaluator (24 test cases)
+    │   ├── document_loader.py           # Ingests 9 support policy documents
+    │   ├── embeddings.py                # Fixed 384-dim embedding generator (SentenceTransformers / TF-IDF)
+    │   ├── evaluation.py                # Benchmark evaluator (24 test cases)
+    │   ├── main.py                      # CLI entry point & server launcher (--serve)
+    │   ├── mock_llm.py                  # Deterministic zero-cost MOCK_LLM backend
+    │   ├── retriever.py                 # ChromaDB similarity search retriever
+    │   ├── vector_store.py              # ChromaDB persistent vector database manager
+    │   └── workflow.py                  # LangGraph StateGraph executable graph workflow
     ├── tests/
-    │   └── test_assistant.py            # Pytest suite for support assistant
-    ├── documents/                       # Synthetic customer policy files (.txt)
+    │   └── test_assistant.py            # Pytest suite testing 8+ docs, ChromaDB, LangGraph, MOCK_LLM, FastAPI
+    ├── documents/                       # Knowledge Base: 9 realistic synthetic policy documents (.txt)
     │   ├── account_policy.txt
     │   ├── cancellation_policy.txt
     │   ├── delivery_policy.txt
+    │   ├── order_tracking_policy.txt
     │   ├── payment_policy.txt
-    │   └── refund_policy.txt
+    │   ├── privacy_terms_policy.txt
+    │   ├── refund_policy.txt
+    │   ├── returns_policy.txt
+    │   └── zepto_pass_policy.txt
     ├── data/
-    │   └── vector_store/                # FAISS index and metadata cache
+    │   └── chroma_db/                   # Persistent ChromaDB vector database files
     └── output/                          # Benchmark evaluation reports
         ├── evaluation_results.json      # Evaluation benchmark JSON metrics
         └── evaluation_summary.md        # Evaluation markdown report
@@ -182,34 +189,36 @@ python -m jupyter nbconvert --to notebook --execute analytics/02_modeling.ipynb 
 
 ## 6. Module 3: Grounded Support Assistant
 
-### Implementation Details
-- **Policy Ingestion**: Loads 5 synthetic Zepto-style customer support policy documents (`refund_policy.txt`, `cancellation_policy.txt`, `payment_policy.txt`, `delivery_policy.txt`, `account_policy.txt`).
-- **Document Chunking**: Splits documents into logical section chunks (19 total chunks) preserving document titles, categories, and section headings while omitting header disclaimers.
-- **Embedding Backend & Fallback Mechanism**:
-  - Designed for 384-dimensional dense embeddings using `sentence-transformers` (`all-MiniLM-L6-v2`).
-  - Automatically switches to a built-in **TF-IDF Vectorizer fallback** if PyTorch encounters environment initialization issues (`[WinError 1114]`).
-  - Logs a clean single-line notification (`[Embeddings] Embedding backend: TF-IDF fallback`) without stack traces.
-- **FAISS Vector Store & Retrieval**: Indexes 19 normalized L2 vectors into a local FAISS index (`index.faiss`) for fast inner-product similarity retrieval (`top_k=4`).
-- **Domain Typo Normalization**: Normalizes spelling variations (e.g. `paymant` $\rightarrow$ `payment`, `refnd` $\rightarrow$ `refund`, `cancelltion` $\rightarrow$ `cancellation`) via conservative fuzzy matching (`cutoff=0.82`).
-- **Grounded Answer Synthesis & Refusal Guardrail**: Synthesizes answers strictly from retrieved context with explicit source document attribution. Out-of-scope queries trigger a zero-hallucination refusal:
+### Implementation Details & Original Rubric Compliance
+- **Knowledge Base Ingestion**: 9 realistic synthetic support policy text documents (`refund_policy.txt`, `cancellation_policy.txt`, `payment_policy.txt`, `delivery_policy.txt`, `account_policy.txt`, `returns_policy.txt`, `zepto_pass_policy.txt`, `order_tracking_policy.txt`, `privacy_terms_policy.txt`) ingested into vector store.
+- **ChromaDB Vector Store**: Built and persisted using **ChromaDB** (`chromadb.PersistentClient`) under `support_assistant/data/chroma_db/`. Stores vectors in persistent SQLite collection `zepto_support_policies`.
+- **RAG Retrieval Flow**: Query embedding search against ChromaDB persistent collection returning top-k relevant policy context chunks with source document attribution.
+- **LangGraph Workflow Engine**: Assistant workflow executed via an executable **LangGraph `StateGraph`** state machine (`START -> normalize_query -> retrieve_context -> generate_answer -> END`).
+- **MOCK_LLM Mode**: Deterministic zero-cost `MockLLM` generator synthesizing answers without requiring external paid API credentials (OpenAI/Anthropic/Gemini).
+- **FastAPI Web Application**: Exposes support assistant via FastAPI endpoints (`POST /ask`, `GET /health`, `GET /status`), runnable locally without paid services.
+- **Domain Typo Normalization**: Normalizes spelling variations (e.g. `paymant` $\rightarrow$ `payment`, `refnd` $\rightarrow$ `refund`) via conservative fuzzy matching against domain vocabulary.
+- **Zero-Hallucination Refusal Guardrail**: Out-of-scope queries trigger strict refusal:
   > *"The available policy documents do not provide enough information to answer this question."*
 
 ### Verified Results
-- **Pytest Suite**: Passed **11/11 unit tests**.
-- **Benchmark Evaluation**: Passed **24/24 evaluation test cases (100.0% accuracy)** across grounded policy questions, typo robustness queries, and out-of-scope refusal questions.
+- **Pytest Suite**: Passed **9/9 unit tests** verifying 8+ documents, ChromaDB persistence, LangGraph workflow execution, MOCK_LLM operation, and FastAPI endpoints.
+- **Benchmark Evaluation**: Passed **24/24 benchmark test cases (100.0% accuracy)** across grounded policy questions, typo robustness queries, and out-of-scope refusal questions.
 
 ### Execution Commands
 ```bash
-# 1. Build / Rebuild FAISS Vector Index
+# 1. Build / Rebuild Persistent ChromaDB Vector Store
 python -m support_assistant.src.main --build
 
-# 2. Query Single Question via CLI
-python -m support_assistant.src.main --query "How long does a refund take?"
+# 2. Launch FastAPI Server
+python -m support_assistant.src.main --serve
 
-# 3. Run Pytest Suite
+# 3. Query Single Question via CLI
+python -m support_assistant.src.main --query "How long does a refund take for UPI?"
+
+# 4. Run Pytest Suite
 pytest support_assistant/tests/test_assistant.py -v
 
-# 4. Run Automated Benchmark Evaluation
+# 5. Run Automated Benchmark Evaluation
 python -m support_assistant.src.evaluation
 ```
 
@@ -237,10 +246,12 @@ python -m support_assistant.src.evaluation
 - `jupyter` (Notebook analysis execution)
 
 ### Module 3: Grounded Support Assistant
-- `faiss-cpu` (Vector index storage and similarity search)
-- `scikit-learn` (`TfidfVectorizer` fallback embedding backend)
+- `chromadb` (Persistent vector store database)
+- `langgraph` (StateGraph workflow state machine)
+- `fastapi` & `uvicorn` (Web API framework & ASGI server)
+- `scikit-learn` (`TfidfVectorizer` embedding backend)
 - `difflib` (Fuzzy query typo normalization)
-- `sentence-transformers` (Supported primary embedding model interface with automatic fallback)
+- `sentence-transformers` (Supported primary embedding model interface)
 
 ---
 
@@ -250,8 +261,8 @@ Clone the repository and install all required dependencies using `pip`:
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/M-Vinay1989/zepto-data-ai-platform.git
-cd zepto-data-ai-platform
+git clone https://github.com/M-Vinay1989/ZEPTO-CAPSTONE-PROJECT.git
+cd ZEPTO-CAPSTONE-PROJECT
 
 # 2. Install dependencies
 pip install -r requirements.txt
@@ -271,16 +282,17 @@ python -m data_pipeline.run_pipeline
 python -m jupyter nbconvert --to notebook --execute analytics/01_eda.ipynb --inplace
 python -m jupyter nbconvert --to notebook --execute analytics/02_modeling.ipynb --inplace
 
-# Execute Module 3: Build Vector Index & Query Assistant
+# Execute Module 3: Build ChromaDB Index, Query Assistant & Launch FastAPI Server
 python -m support_assistant.src.main --build
 python -m support_assistant.src.main --query "What payment options are accepted by Zepto?"
+python -m support_assistant.src.main --serve
 ```
 
 ---
 
-## 10. Verification and Verification Commands
+## 10. Verification Commands
 
-Full system verification can be executed across the platform:
+Full system verification can be executed across all three modules:
 
 ```bash
 # 1. Module 1: Run Data Pipeline & Automated Validation Suite
@@ -295,7 +307,7 @@ python -c "import joblib, pandas as pd; p=joblib.load('analytics/best_model_pipe
 
 # 3. Module 3: Run Support Assistant Unit Tests
 pytest support_assistant/tests/test_assistant.py -v
-# Result: 11/11 unit tests PASSED
+# Result: 9/9 unit tests PASSED (ChromaDB, LangGraph, MOCK_LLM, FastAPI)
 
 # 4. Module 3: Run Benchmark Evaluation Suite
 python -m support_assistant.src.evaluation
@@ -312,8 +324,10 @@ python -m support_assistant.src.evaluation
 - **Train-Fold SMOTE (Module 2)**: Oversampling occurs exclusively on the training fold (`X_train_prep`), preventing synthetic sample leakage into test data.
 - **Random Forest OOB Evaluation (Module 2)**: Out-of-Bag scoring (`oob_score=True`) provides an internal cross-validation benchmark alongside GridSearchCV.
 - **Full Pipeline Serialization (Module 2)**: Exporting the entire preprocessing + classifier pipeline ensures raw un-preprocessed inputs can be passed directly to `joblib.load()`.
-- **Document Section Chunking (Module 3)**: Splitting text by logical policy headers ensures retrieved chunks maintain contextual coherence.
-- **Grounding & Refusal Guardrails (Module 3)**: Similarity thresholds and corpus checks prevent hallucinated responses to out-of-scope queries.
+- **ChromaDB Persistent Store (Module 3)**: Persistent ChromaDB vector collection (`zepto_support_policies`) stored under `data/chroma_db/`.
+- **LangGraph Workflow (Module 3)**: Executable `StateGraph` workflow representing the support assistant process (`normalize_query -> retrieve_context -> generate_answer`).
+- **MOCK_LLM Zero-Cost Backend (Module 3)**: Deterministic Mock LLM execution path that operates without external paid API keys.
+- **FastAPI Web API (Module 3)**: Production-ready web endpoints (`POST /ask`, `GET /health`) for serving grounded support answers.
 
 ---
 
@@ -322,19 +336,18 @@ python -m support_assistant.src.evaluation
 - **Synthetic Policy Documents**: Support policies in Module 3 are demonstration documents and do not constitute legal or official Zepto SLAs.
 - **External Web Dependency**: Module 1 scraping relies on the availability and structure of the external *Books to Scrape* practice website.
 - **TF-IDF Fallback in Certain Environments**: On Windows environments experiencing PyTorch DLL initialization issues, the assistant gracefully uses TF-IDF embeddings.
-- **Bounded Support Knowledge**: The assistant's knowledge is strictly limited to the text contained within the 5 provided policy files; out-of-scope queries are explicitly refused.
+- **Bounded Support Knowledge**: The assistant's knowledge is strictly limited to the text contained within the 9 provided policy files; out-of-scope queries are explicitly refused.
 
 ---
 
 ## 13. Git Workflow
 
 The project was developed using a clean Git branching and integration workflow:
-- **Feature Branch**: `feature/module-1-data-pipeline`
-- **Analytics Revamp Commits**:
-  - `49a0ae0`: `feat(analytics): rebuild Titanic EDA and modeling notebooks with train-only preprocessing`
-  - `1ef3323`: `docs(analytics): update analytics README and root requirements for Titanic pipeline compliance`
-- `master` is synchronized with `origin/master`.
-- Working tree verified clean.
+- **Feature Branches**:
+  - `feature/module-1-data-pipeline`
+  - `feature/module-3-rubric-compliance`
+- **master Synchronization**: Synchronized with `origin/master`.
+- **Working Tree**: Verified clean.
 
 ---
 
@@ -353,7 +366,7 @@ For detailed technical documentation specific to each module, refer to:
 |---|---|:---:|
 | **Data Pipeline (Module 1)** | 17 / 17 Validation Checks Passed | **PASS** |
 | **Titanic Analytics (Module 2)** | Both notebooks executed with 0 errors; pipeline reloaded & verified | **PASS** |
-| **Support Assistant (Module 3)** | 11 / 11 Pytest Unit Tests Passed | **PASS** |
+| **Support Assistant (Module 3)** | 9 / 9 Pytest Unit Tests Passed (ChromaDB, LangGraph, MOCK_LLM, FastAPI) | **PASS** |
 | **Support Evaluation (Module 3)** | 24 / 24 Benchmark Cases Passed (100.0%) | **PASS** |
 | **Git Repository Status** | Synchronized with `origin/master`, working tree clean | **PASS** |
 
