@@ -151,7 +151,7 @@ python -m data_pipeline.run_pipeline
   - Stratified 80/20 train/test split (712 train rows / 179 test rows).
   - Classifiers: Logistic Regression, Decision Tree (depth=4 visual tree plot), Baseline Random Forest, and Tuned Random Forest.
   - Class Imbalance Experiment: Variant A (Baseline F1=0.7442), Variant B (`class_weight="balanced"` F1=0.7328), Variant C (SMOTE applied **strictly on `X_train_prep`** F1=0.7313).
-  - Hyperparameter Tuning: 5-fold GridSearchCV on Random Forest with `oob_score=True` (Best Params: `max_depth: 10`, `max_features: 'sqrt'`, `n_estimators: 100`; Best CV F1 = 0.7458; OOB score = 0.8202).
+  - Hyperparameter Tuning: 5-fold GridSearchCV on Random Forest with `oob_score=True` (Best Params: `max_depth: 10`, `max_features: 'sqrt'`, `n_estimators: 100`; Best CV F1 = 0.7458; Tuned RF OOB score = 0.8202).
 - **Fare Multivariate Regression Side-Task**:
   - Linear regression predicting `fare` (MAE = 20.8977, RMSE = 30.5328, $R^2 = 0.3975$, Adjusted $R^2 = 0.3617$ using $n=179, p=10$).
   - Residual plot shows a funnel-shaped error distribution confirming heteroscedasticity.
@@ -167,7 +167,7 @@ python -m data_pipeline.run_pipeline
 | **Tuned Random Forest** | **0.8156** | 0.8163 | 0.5797 | 0.6780 | 0.8231 | Verified Tuned |
 
 ### Classifier Recommendation Rationale
-We recommend the **Baseline Random Forest Classifier** for primary deployment. While the Decision Tree achieves higher precision (86.05%), its recall drops to 53.62%. Baseline Random Forest delivers the highest overall F1 score (0.7442), superior recall (69.57%), strong precision (80.00%), top accuracy (81.56%), and a robust OOB score of 0.8202. Although GridSearchCV identified optimal cross-validation parameters (`max_depth=10`, best CV F1=0.7458), Baseline Random Forest achieved superior generalization on the held-out test set (F1=0.7442 vs 0.6780).
+We recommend the **Baseline Random Forest Classifier** for deployment based on held-out test performance. On the held-out test set, Baseline Random Forest achieved an F1 score of 0.7442, accuracy of 0.8156, precision of 0.8000, recall of 0.6957, and ROC-AUC of 0.8271. In comparison, Logistic Regression achieved an F1 score of 0.7244 (AUC 0.8437), Decision Tree achieved an F1 score of 0.6607, and Tuned Random Forest achieved an F1 score of 0.6780 (accuracy 0.8156, precision 0.8163, recall 0.5797, AUC 0.8231). Although 5-fold GridSearchCV produced a best cross-validation F1 score of 0.7458 and an OOB score of 0.8202 for the Tuned Random Forest (`max_depth=10`, `max_features='sqrt'`, `n_estimators=100`), the Baseline Random Forest demonstrated superior test set F1 generalization (0.7442 vs 0.6780).
 
 ### Execution Commands
 ```bash

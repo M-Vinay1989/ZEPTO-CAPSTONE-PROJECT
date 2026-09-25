@@ -154,7 +154,7 @@ Z-score normalization check on `df_cleaned`:
 - **GridSearchCV**: 5-fold CV over `n_estimators: [50, 100, 200]`, `max_depth: [None, 5, 10]`, `max_features: ['sqrt', 'log2']`.
 - **Best Parameters**: `{'max_depth': 10, 'max_features': 'sqrt', 'n_estimators': 100}`
 - **Best Cross-Validation F1 Score**: `0.7458`
-- **Random Forest OOB Score**: `0.8202` (configured with `oob_score=True`).
+- **Tuned Random Forest OOB Score**: `0.8202` (configured with `oob_score=True`).
 
 ---
 
@@ -170,7 +170,7 @@ Multivariate linear regression predicting ticket `fare` from explicit predictors
 ---
 
 ## 15. Final Classifier Recommendation
-We recommend the **Baseline Random Forest Classifier** for primary deployment. While the Decision Tree achieves high precision ($86.05\%$), it suffers from low recall ($53.62\%$). Baseline Random Forest delivers the highest overall F1 score ($0.7442$), superior recall ($69.57\%$), strong precision ($80.00\%$), top accuracy ($81.56\%$), and a robust OOB score of $0.8202$. In emergency survival prediction, balancing recall and precision ensures maximum lives identified without sacrificing model reliability.
+We recommend the **Baseline Random Forest Classifier** for deployment based on held-out test performance. On the held-out test set, Baseline Random Forest achieved an F1 score of 0.7442, accuracy of 0.8156, precision of 0.8000, recall of 0.6957, and ROC-AUC of 0.8271. In comparison, Logistic Regression achieved an F1 score of 0.7244 (AUC 0.8437), Decision Tree achieved an F1 score of 0.6607, and Tuned Random Forest achieved an F1 score of 0.6780 (accuracy 0.8156, precision 0.8163, recall 0.5797, AUC 0.8231). Although 5-fold GridSearchCV produced a best cross-validation F1 score of 0.7458 and an OOB score of 0.8202 for the Tuned Random Forest, the Baseline Random Forest demonstrated superior test set F1 generalization (0.7442 vs 0.6780).
 
 ---
 
