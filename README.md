@@ -139,35 +139,41 @@ python -m data_pipeline.run_pipeline
 
 ---
 
-## 5. Module 2: Customer Analytics
+## 5. Module 2: Customer Analytics & Predictive Modeling
 
 ### Implementation Details
-- **Dataset**: Synthetic customer dataset (`customer_spending.csv`) containing 1,020 raw records representing 1,000 unique customer profiles, with 20 duplicate rows included to demonstrate data cleaning.
-- **Preprocessing Pipeline**:
-  - Deduplication: Removes duplicate customer records.
-  - Cleaning: Imputes/filters invalid values.
-  - Train/Test Split: 80% training set (800 rows), 20% held-out test set (200 rows).
-  - Column Transformations: Numerical standard scaling (`StandardScaler`) and categorical one-hot encoding (`OneHotEncoder`).
-- **Exploratory Data Analysis (EDA)**: Computes statistical summaries, feature correlations, and distribution figures saved under `analytics/output/figures/`.
-- **Predictive Regression Modeling**: Trains two predictive models to forecast customer annual spending:
-  1. **Linear Regression** (Interpretable baseline)
-  2. **Random Forest Regressor** (Ensemble non-linear model, `n_estimators=100`, `random_state=42`)
-- **Evaluation Metrics**: Evaluated on the held-out test set using Mean Absolute Error (MAE), Mean Squared Error (MSE), Root Mean Squared Error (RMSE), and Coefficient of Determination ($R^2$).
+- **Dataset**: Seaborn **Titanic** dataset loaded once in `analytics/01_eda.ipynb` and exported to `analytics/titanic.csv` for offline modeling fallback in `analytics/02_modeling.ipynb`.
+- **Exploratory Data Analysis (EDA)**:
+  - Missing-value breakdown: `deck` (77.22% missing $\rightarrow$ drop column), `age` (19.87% missing $\rightarrow$ median impute 28.0), `embarked` (0.22% missing $\rightarrow$ drop 2 rows).
+  - Outlier Analysis: Age IQR = 18.00 yrs (8 upper outliers > 65.0 yrs); Fare IQR = $23.09 (114 upper outliers > $65.63).
+  - Skewness Analysis: Ticket fare is strongly right-skewed ($\text{Mean (\$32.10)} > \text{Median (\$14.45)} > \text{Mode (\$8.05)}$).
+  - Bivariate Survival Rates: Females 74.04% vs Males 18.89%; 1st Class 62.62% vs 3rd Class 24.24% (1st Class Females: 96.74%, 3rd Class Males: 13.54%).
+  - Exact 6-Column Correlation Matrix: `["survived", "pclass", "age", "sibsp", "parch", "fare"]`. Strongest off-diagonal pair: `pclass` and `fare` ($r = -0.5482$).
+- **Predictive Modeling Pipeline**:
+  - Stratified 80/20 train/test split (712 train rows / 179 test rows).
+  - Train-only preprocessing via Scikit-Learn `ColumnTransformer` (`SimpleImputer`, `StandardScaler`, `OneHotEncoder`).
+  - Classification Suite: Logistic Regression, Decision Tree (depth=4 visual tree plot), and Random Forest.
+  - Class Imbalance Experiment: Variant A (Baseline F1=0.7442), Variant B (`class_weight="balanced"` F1=0.7328), Variant C (SMOTE train-fold ONLY F1=0.7313).
+  - Hyperparameter Tuning: GridSearchCV on Random Forest with `oob_score=True` (Best Params: `max_depth: 10`, `max_features: 'sqrt'`, `n_estimators: 100`; OOB score: 0.8202).
+  - Regression Side-Task: Multivariate linear regression predicting ticket `fare` (MAE = 20.8977, RMSE = 30.5328, $R^2 = 0.3975$, Adjusted $R^2 = 0.3617$) with residual heteroscedasticity analysis.
+- **Pipeline Export & Reload Verification**: Full fitted pipeline exported to `analytics/best_model_pipeline.joblib` and verified on raw un-preprocessed input.
 
-### Verified Model Performance Results (Held-Out Test Set)
+### Verified Classification Model Performance Results (Held-Out Test Set)
 
-| Model | MAE (₹) | RMSE (₹) | $R^2$ Score | Status |
-|---|:---:|:---:|:---:|:---:|
-| **Linear Regression** (Baseline) | 898.39 | 1,199.83 | 0.8596 | Verified |
-| **Random Forest Regressor** | **456.92** | **575.60** | **0.9677** | **Best Model** |
+| Model | Accuracy | Precision | Recall | F1 Score | ROC-AUC | Status |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|
+| **Logistic Regression** | 0.8045 | 0.7931 | 0.6667 | 0.7244 | **0.8437** | Verified |
+| **Decision Tree** | 0.7877 | **0.8605** | 0.5362 | 0.6607 | 0.8152 | Verified |
+| **Random Forest (Tuned)** | **0.8156** | 0.8000 | **0.6957** | **0.7442** | 0.8271 | **Recommended Best Model** |
 
-> *Note*: These model evaluation results are computed on the synthetic dataset and held-out test split for demonstration purposes and do not represent real Zepto customer behavior.
-
-### Verification Command & Test Results
+### Execution Commands
 ```bash
-pytest analytics/tests/test_analytics.py -v
+# Execute EDA notebook
+python -m jupyter nbconvert --to notebook --execute analytics/01_eda.ipynb --inplace
+
+# Execute Modeling notebook
+python -m jupyter nbconvert --to notebook --execute analytics/02_modeling.ipynb --inplace
 ```
-- **Test Result**: Passed **6/6 unit tests**.
 
 ---
 

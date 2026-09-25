@@ -1,0 +1,4 @@
+Strategy,Precision,Recall,F1
+Variant A (Baseline),0.8,0.6957,0.7442
+Variant B (Class Weight Balanced),0.7742,0.6957,0.7328
+Variant C (SMOTE Train-Only),0.7538,0.7101,0.7313
