@@ -13,8 +13,14 @@ from typing import List, Dict, Set
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from retriever import retrieve_relevant_chunks, VECTOR_STORE_DIR
-from vector_store import load_vector_store
+try:
+    from support_assistant.src.retriever import retrieve_relevant_chunks, CHROMA_DB_DIR
+    from support_assistant.src.vector_store import load_vector_store
+    from support_assistant.src.document_loader import load_support_documents
+except ImportError:
+    from retriever import retrieve_relevant_chunks, CHROMA_DB_DIR
+    from vector_store import load_vector_store
+    from document_loader import load_support_documents
 
 SIMILARITY_THRESHOLD = 0.08  # Minimum vector similarity threshold for policy context relevance
 
@@ -32,16 +38,26 @@ STOP_WORDS = {
 
 _CORPUS_WORDS_CACHE: Set[str] = None
 
-def get_corpus_words(store_dir: Path = VECTOR_STORE_DIR, force_reload: bool = False) -> Set[str]:
+def get_corpus_words(store_dir: Path = CHROMA_DB_DIR, force_reload: bool = False) -> Set[str]:
     """Retrieves set of all normalized words present across all indexed policy document chunks."""
     global _CORPUS_WORDS_CACHE
-    if _CORPUS_WORDS_CACHE is None or force_reload:
+    if _CORPUS_WORDS_CACHE is None or len(_CORPUS_WORDS_CACHE) == 0 or force_reload:
         try:
-            _, chunks = load_vector_store(store_dir)
-            all_text = " ".join(c["text"] for c in chunks).lower()
-            _CORPUS_WORDS_CACHE = set(re.findall(r'\b[a-z]{3,}\b', all_text))
+            _, _, chunks = load_vector_store(store_dir)
+            if chunks:
+                all_text = " ".join(c["text"] for c in chunks).lower()
+                _CORPUS_WORDS_CACHE = set(re.findall(r'\b[a-z]{3,}\b', all_text))
+            else:
+                docs = load_support_documents()
+                all_text = " ".join(d["text"] for d in docs).lower()
+                _CORPUS_WORDS_CACHE = set(re.findall(r'\b[a-z]{3,}\b', all_text))
         except Exception:
-            _CORPUS_WORDS_CACHE = set()
+            try:
+                docs = load_support_documents()
+                all_text = " ".join(d["text"] for d in docs).lower()
+                _CORPUS_WORDS_CACHE = set(re.findall(r'\b[a-z]{3,}\b', all_text))
+            except Exception:
+                _CORPUS_WORDS_CACHE = set()
     return _CORPUS_WORDS_CACHE
 
 def normalize_word(word: str) -> str:
@@ -71,7 +87,7 @@ def term_matches_words(term: str, word_set: Set[str]) -> bool:
             return True
     return False
 
-def normalize_query_typos(query: str, store_dir: Path = VECTOR_STORE_DIR) -> str:
+def normalize_query_typos(query: str, store_dir: Path = CHROMA_DB_DIR) -> str:
     """
     Normalizes spelling typos in query tokens by matching unknown words against known domain vocabulary.
     Only unknown tokens (not in stop words or domain vocabulary) are checked with conservative cutoff=0.82.
@@ -105,7 +121,7 @@ def normalize_query_typos(query: str, store_dir: Path = VECTOR_STORE_DIR) -> str
 
     return corrected_query
 
-def generate_grounded_answer(query: str, retrieved_chunks: List[Dict], store_dir: Path = VECTOR_STORE_DIR) -> Dict:
+def generate_grounded_answer(query: str, retrieved_chunks: List[Dict], store_dir: Path = CHROMA_DB_DIR) -> Dict:
     """
     Generates a grounded response based ONLY on retrieved policy context chunks.
     Enforces refusal for ungrounded queries where context similarity is low or policy is absent.
@@ -156,7 +172,7 @@ def generate_grounded_answer(query: str, retrieved_chunks: List[Dict], store_dir
 
     if query_terms:
         missing_context_terms = [term for term in query_terms if not term_matches_words(term, context_words)]
-        if len(missing_context_terms) >= max(2, len(query_terms)):
+        if len(missing_context_terms) >= max(1, len(query_terms) // 2 + 1):
             return {
                 "query": query,
                 "answer": UNSUPPORTED_RESPONSE,
@@ -181,7 +197,7 @@ def generate_grounded_answer(query: str, retrieved_chunks: List[Dict], store_dir
         "chunks_used": [c["chunk_id"] for c in retrieved_chunks]
     }
 
-def ask_assistant(query: str, top_k: int = 3, store_dir: Path = VECTOR_STORE_DIR) -> Dict:
+def ask_assistant(query: str, top_k: int = 4, store_dir: Path = CHROMA_DB_DIR) -> Dict:
     """
     Main assistant pipeline function: performs fuzzy query normalization, retrieves context, and generates grounded answer.
     """
@@ -198,10 +214,3 @@ if __name__ == "__main__":
     print("Q:", q1)
     print("Answer:\n", resp1["answer"])
     print("Sources:", resp1["sources"])
-
-    q2 = "What is Zepto's policy for international delivery?"
-    resp2 = ask_assistant(q2)
-    print("\n--- Question 2 (Ungrounded) ---")
-    print("Q:", q2)
-    print("Answer:\n", resp2["answer"])
-    print("Sources:", resp2["sources"])
