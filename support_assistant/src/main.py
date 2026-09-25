@@ -1,6 +1,6 @@
 """
-Main CLI Interface for Zepto Grounded GenAI Support Assistant (Module 3).
-Provides commands to rebuild vector index and interactively query policy documents.
+Main CLI & Server Launcher for Zepto Grounded GenAI Support Assistant (Module 3).
+Provides commands to rebuild vector index, query policy documents via LangGraph, and launch FastAPI server.
 """
 
 import sys
@@ -10,45 +10,59 @@ from pathlib import Path
 # Add parent path for local module imports
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from document_loader import load_documents, DOCUMENTS_DIR
-from chunker import chunk_all_documents
-from vector_store import build_vector_store, VECTOR_STORE_DIR
-from assistant import ask_assistant
+try:
+    from support_assistant.src.document_loader import load_support_documents, DOCUMENTS_DIR
+    from support_assistant.src.chunker import chunk_all_documents
+    from support_assistant.src.vector_store import build_vector_store, CHROMA_DB_DIR
+    from support_assistant.src.workflow import run_langgraph_workflow
+except ImportError:
+    from document_loader import load_support_documents, DOCUMENTS_DIR
+    from chunker import chunk_all_documents
+    from vector_store import build_vector_store, CHROMA_DB_DIR
+    from workflow import run_langgraph_workflow
 
 def build_index():
     """
-    Loads documents, splits into chunks, and builds/saves local vector store index.
+    Loads documents, splits into chunks, and builds persistent ChromaDB vector store index.
     """
     print("=" * 60)
-    print("Building Zepto Support Assistant Vector Store Index...")
+    print("Building Zepto Support Assistant ChromaDB Vector Store Index...")
     print("=" * 60)
     
-    docs = load_documents(DOCUMENTS_DIR)
+    docs = load_support_documents(DOCUMENTS_DIR)
     print(f"[1/3] Loaded {len(docs)} policy documents.")
     
     chunks = chunk_all_documents(docs)
     print(f"[2/3] Chunked documents into {len(chunks)} total section chunks.")
     
-    vector_store = build_vector_store(chunks, VECTOR_STORE_DIR)
-    print(f"[3/3] Vector store index successfully saved to: {VECTOR_STORE_DIR}")
+    build_info = build_vector_store(chunks, CHROMA_DB_DIR)
+    print(f"[3/3] Persistent ChromaDB collection successfully stored at: {CHROMA_DB_DIR}")
     print("=" * 60)
-    print("Index build complete!")
+    print(f"Index build complete! Persistent vectors: {build_info['count']}")
 
 def handle_query(query: str):
     """
-    Executes query against RAG assistant and prints answer and source attribution.
+    Executes query through LangGraph StateGraph workflow and prints answer and source attribution.
     """
-    response = ask_assistant(query)
+    response = run_langgraph_workflow(query)
     print("\n" + "=" * 60)
-    print(f"QUESTION: {response['query']}")
+    print(f"QUESTION: {response.get('query', query)}")
     print("-" * 60)
-    print(f"ANSWER:\n{response['answer']}")
+    print(f"ANSWER:\n{response.get('answer', '')}")
     print("-" * 60)
-    if response["is_grounded"]:
-        print(f"GROUNDED: Yes (Sources: {', '.join(response['sources'])})")
+    if response.get("is_grounded", False):
+        print(f"GROUNDED: Yes (Sources: {', '.join(response.get('sources', []))})")
     else:
         print("GROUNDED: No (Ungrounded Query - Refused)")
     print("=" * 60 + "\n")
+
+def run_server(host: str = "127.0.0.1", port: int = 8000):
+    """
+    Launches FastAPI web server via Uvicorn.
+    """
+    import uvicorn
+    print(f"Launching Zepto Support Assistant FastAPI Server at http://{host}:{port}")
+    uvicorn.run("support_assistant.src.api:app", host=host, port=port, reload=False)
 
 def run_interactive():
     """
@@ -56,6 +70,7 @@ def run_interactive():
     """
     print("=" * 60)
     print("Zepto Grounded GenAI Support Assistant - Interactive CLI")
+    print("Powered by ChromaDB, LangGraph, and MOCK_LLM")
     print("Type your policy question below (or 'exit' / 'quit' to stop).")
     print("=" * 60)
     
@@ -74,20 +89,24 @@ def run_interactive():
 
 def main():
     parser = argparse.ArgumentParser(description="Zepto Grounded GenAI Support Assistant")
-    parser.add_argument("--build", action="store_true", help="Rebuild vector store index from policy documents")
+    parser.add_argument("--build", action="store_true", help="Rebuild persistent ChromaDB vector store index from policy documents")
     parser.add_argument("--query", type=str, help="Single query to ask the support assistant")
+    parser.add_argument("--serve", action="store_true", help="Launch FastAPI web server")
+    parser.add_argument("--host", type=str, default="127.0.0.1", help="Host address for FastAPI server")
+    parser.add_argument("--port", type=int, default=8000, help="Port number for FastAPI server")
     
     args = parser.parse_args()
     
     if args.build:
         build_index()
+    elif args.serve:
+        run_server(args.host, args.port)
     elif args.query:
         handle_query(args.query)
     else:
-        # Default to building if store doesn't exist, else interactive mode
-        index_file = VECTOR_STORE_DIR / "index.faiss"
-        if not index_file.exists():
-            print("Vector store index not found. Building index for first-time use...")
+        chroma_file = CHROMA_DB_DIR / "chroma.sqlite3"
+        if not chroma_file.exists():
+            print("ChromaDB vector store index not found. Building index for first-time use...")
             build_index()
         run_interactive()
 

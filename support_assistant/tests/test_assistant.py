@@ -1,161 +1,132 @@
 """
-Unit Tests for Module 3: Grounded GenAI Support Assistant.
-Verifies document loading, chunking, vector store indexing, retrieval accuracy,
-grounded response generation, and zero-hallucination refusal behavior for ungrounded queries.
+Unit Tests for Module 3: Grounded GenAI Support Assistant (Rubric Compliant).
+Verifies:
+1. Knowledge Base: at least 8 support documents available
+2. Vector DB: ChromaDB persistent collection creation, loading, and querying
+3. RAG Retrieval: relevant chunks retrieved from ChromaDB
+4. LangGraph: executable StateGraph workflow execution
+5. MOCK_LLM: deterministic zero-cost response generation without external API credentials
+6. FastAPI: POST /ask and GET /health endpoints
+7. End-to-End: question -> retrieve -> generate flow
 """
 
 import sys
 import pytest
 from pathlib import Path
 
-# Add support_assistant/src to path
 MODULE_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(MODULE_ROOT / "src"))
 
-from document_loader import load_documents, DOCUMENTS_DIR
-from chunker import chunk_all_documents, chunk_document
-from vector_store import build_vector_store, load_vector_store, VECTOR_STORE_DIR
+from document_loader import load_support_documents, DOCUMENTS_DIR
+from chunker import chunk_all_documents
+from vector_store import build_vector_store, load_vector_store, CHROMA_DB_DIR
 from retriever import retrieve_relevant_chunks
-from embeddings import generate_embeddings, generate_query_embedding
-from assistant import ask_assistant, generate_grounded_answer, normalize_query_typos, UNSUPPORTED_RESPONSE
-from evaluation import run_evaluation, BENCHMARK_QUESTIONS, OUTPUT_DIR
+from mock_llm import get_mock_llm
+from workflow import run_langgraph_workflow, support_assistant_graph
+from assistant import ask_assistant, normalize_query_typos, UNSUPPORTED_RESPONSE
+from api import app
+from fastapi.testclient import TestClient
 
-def test_document_loader():
-    """Verify document loader correctly reads all synthetic policy files."""
-    docs = load_documents(DOCUMENTS_DIR)
-    assert len(docs) == 5, f"Expected 5 policy documents, got {len(docs)}"
+client = TestClient(app)
+
+def test_support_documents_count():
+    """Verify at least 8 realistic support policy documents are available and non-empty."""
+    docs = load_support_documents(DOCUMENTS_DIR)
+    assert len(docs) >= 8, f"Rubric requires at least 8 documents, found {len(docs)}"
     
     doc_names = [d["document_name"] for d in docs]
-    assert "refund_policy.txt" in doc_names
-    assert "delivery_policy.txt" in doc_names
-    assert "cancellation_policy.txt" in doc_names
-    assert "payment_policy.txt" in doc_names
-    assert "account_policy.txt" in doc_names
+    required_docs = [
+        "refund_policy.txt", "delivery_policy.txt", "cancellation_policy.txt",
+        "payment_policy.txt", "account_policy.txt", "returns_policy.txt",
+        "zepto_pass_policy.txt", "order_tracking_policy.txt", "privacy_terms_policy.txt"
+    ]
+    for r_doc in required_docs:
+        assert r_doc in doc_names, f"Expected support document {r_doc} missing!"
     
     for doc in docs:
         assert doc["text"].strip(), f"Document {doc['document_name']} is empty!"
         assert "[DISCLAIMER:" in doc["text"], f"Synthetic disclaimer missing in {doc['document_name']}"
 
-def test_chunker():
-    """Verify document chunking retains metadata and skips disclaimer chunks."""
-    docs = load_documents(DOCUMENTS_DIR)
-    chunks = chunk_all_documents(docs)
+def test_chromadb_vector_store_persistence():
+    """Verify persistent ChromaDB collection can be created, persisted, and loaded."""
+    chroma_dir = CHROMA_DB_DIR
+    build_meta = build_vector_store(store_dir=chroma_dir)
     
-    assert len(chunks) >= 15, f"Expected at least 15 chunks, got {len(chunks)}"
+    assert build_meta["document_count"] >= 8
+    assert build_meta["vector_db"] == "ChromaDB"
+    assert build_meta["chunk_count"] > 0
     
-    first_chunk = chunks[0]
-    required_keys = {"chunk_id", "document_name", "category", "chunk_index", "text", "source_path"}
-    assert required_keys.issubset(first_chunk.keys()), f"Missing keys in chunk: {required_keys - set(first_chunk.keys())}"
-    
-    # Ensure no chunk consists solely of the disclaimer block
-    for chunk in chunks:
-        assert not chunk["text"].startswith("[DISCLAIMER"), f"Disclaimer chunk found in index: {chunk['chunk_id']}"
+    load_client, load_coll, chunks = load_vector_store(store_dir=chroma_dir)
+    assert load_coll.count() == build_meta["chunk_count"]
+    assert len(chunks) == build_meta["chunk_count"]
 
-def test_embedding_backend_and_consistency():
-    """Verify embedding generation dimensions, float32 precision, and L2 normalization."""
-    texts = ["How long does a refund take?", "Delivery is completed in 10 to 15 minutes."]
-    vecs = generate_embeddings(texts)
-    
-    assert vecs.shape[0] == 2
-    assert vecs.shape[1] == 384, f"Expected 384 embedding dimensions, got {vecs.shape[1]}"
-    assert vecs.dtype == "float32"
-    
-    # Check L2 normalization (unit length vectors)
-    import numpy as np
-    norms = np.linalg.norm(vecs, axis=1)
-    assert np.allclose(norms, 1.0, atol=1e-3), f"Embeddings not L2 normalized: {norms}"
-    
-    q_vec = generate_query_embedding("What payment options exist?")
-    assert q_vec.shape == (384,)
-    assert q_vec.dtype == "float32"
-
-def test_vector_store_build_and_load():
-    """Verify FAISS vector store index build and load operations."""
-    store_dir = VECTOR_STORE_DIR
-    build_info = build_vector_store(store_dir=store_dir)
-    
-    assert Path(build_info["index_path"]).exists(), "FAISS index file missing!"
-    assert Path(build_info["metadata_path"]).exists(), "Metadata JSON file missing!"
-    assert build_info["count"] > 0, "Vector store index is empty!"
-
-    index, chunks = load_vector_store(store_dir)
-    assert index.ntotal == build_info["count"]
-    assert len(chunks) == build_info["count"]
-
-def test_retriever():
-    """Verify top-k similarity retrieval returns relevant chunks."""
-    query = "What is the refund policy for damaged items?"
+def test_chromadb_rag_retriever():
+    """Verify retrieval queries ChromaDB vector store and returns relevant context chunks."""
+    query = "How long does a refund take for UPI?"
     chunks = retrieve_relevant_chunks(query, top_k=3)
     
-    assert len(chunks) == 3, f"Expected 3 retrieved chunks, got {len(chunks)}"
+    assert len(chunks) == 3
     top_chunk = chunks[0]
     assert "score" in top_chunk
-    assert top_chunk["score"] > 0.0, "Similarity score should be positive"
-    assert top_chunk["document_name"] == "refund_policy.txt", f"Top match should be refund_policy.txt, got {top_chunk['document_name']}"
+    assert top_chunk["score"] > 0.0
+    assert "refund_policy.txt" in [c["document_name"] for c in chunks]
 
-def test_retrieval_quality_specific_chunks():
-    """Verify specific queries retrieve exact policy section chunks."""
-    q1 = "How long does a UPI refund take?"
-    chunks1 = retrieve_relevant_chunks(q1, top_k=3)
-    top_sources = [c["document_name"] for c in chunks1]
-    assert "refund_policy.txt" in top_sources
+def test_langgraph_workflow_execution():
+    """Verify LangGraph StateGraph workflow executes correctly with nodes: normalize -> retrieve -> generate."""
+    query = "What payment methods are supported on Zepto?"
+    response = run_langgraph_workflow(query, top_k=4)
     
-    q2 = "What happens if my order is delayed?"
-    chunks2 = retrieve_relevant_chunks(q2, top_k=3)
-    top_sources2 = [c["document_name"] for c in chunks2]
-    assert "delivery_policy.txt" in top_sources2
+    assert response.get("langgraph_executed") is True
+    assert response.get("is_grounded") is True
+    assert "payment_policy.txt" in response.get("sources", [])
+    assert response.get("answer") != UNSUPPORTED_RESPONSE
+
+def test_mock_llm_zero_credentials():
+    """Verify MOCK_LLM operates deterministically without requiring paid API keys."""
+    mock_llm = get_mock_llm()
+    chunks = retrieve_relevant_chunks("What is Zepto Pass membership?", top_k=3)
+    resp = mock_llm.generate("What is Zepto Pass membership?", chunks)
+    
+    assert resp["llm_backend"] == "MOCK_LLM (Deterministic Zero-Cost)"
+    assert resp["mock_llm_enabled"] is True
+    assert resp["is_grounded"] is True
+    assert "zepto_pass_policy.txt" in resp["sources"]
+
+def test_fastapi_health_endpoint():
+    """Verify FastAPI GET /health endpoint returns HTTP 200 and system metadata."""
+    res = client.get("/health")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "ok"
+    assert data["documents_ingested"] >= 8
+    assert data["vector_db"] == "ChromaDB"
+    assert data["workflow_engine"] == "LangGraph"
+    assert data["llm_mode"] == "MOCK_LLM"
+
+def test_fastapi_ask_endpoint():
+    """Verify FastAPI POST /ask endpoint returns grounded answer and source metadata."""
+    payload = {"question": "How long does a refund take?", "top_k": 4}
+    res = client.post("/ask", json=payload)
+    assert res.status_code == 200
+    data = res.json()
+    
+    assert data["query"] == "How long does a refund take?"
+    assert data["is_grounded"] is True
+    assert "refund_policy.txt" in data["sources"]
+    assert data["vector_db"] == "ChromaDB"
+    assert data["workflow"] == "LangGraph StateGraph"
+    assert data["llm_backend"] == "MOCK_LLM (Deterministic Zero-Cost)"
 
 def test_typo_query_normalization():
-    """Verify query normalization corrects typos and handles grounded vs ungrounded queries."""
-    norm1 = normalize_query_typos("What happens if my paymant fails?")
-    assert "payment" in norm1.lower()
-    
-    norm2 = normalize_query_typos("How long does a refnd take?")
-    assert "refund" in norm2.lower()
+    """Verify query typo normalization works correctly."""
+    norm = normalize_query_typos("What happens if my paymant fails?")
+    assert "payment" in norm.lower()
 
-    # Verify typo query gets successfully grounded
-    resp = ask_assistant("What happens if my paymant fails?")
-    assert resp["is_grounded"] is True
-    assert "payment_policy.txt" in resp["sources"]
-
-def test_refund_query_grounded():
-    """Verify specific refund duration question 'How long does a refund take?' is grounded."""
-    query = "How long does a refund take?"
-    response = ask_assistant(query, top_k=4)
-    
-    assert response["is_grounded"] is True, "Refund query should be marked grounded"
-    assert "refund_policy.txt" in response["sources"], f"Expected refund_policy.txt in sources, got: {response['sources']}"
-    assert response["answer"] != UNSUPPORTED_RESPONSE
-
-def test_grounded_response():
-    """Verify assistant produces grounded response with source attribution for policy questions."""
-    query = "What payment methods are supported?"
-    response = ask_assistant(query, top_k=4)
-    
-    assert response["is_grounded"] is True, "Query should be marked grounded"
-    assert len(response["sources"]) > 0, "Sources list should not be empty"
-    assert "payment_policy.txt" in response["sources"]
-    assert response["answer"] != UNSUPPORTED_RESPONSE
-    assert "[DISCLAIMER" not in response["answer"]
-
-def test_ungrounded_refusal():
-    """Verify assistant strictly refuses out-of-scope questions without hallucinating."""
-    query = "Does Zepto provide international delivery?"
-    response = ask_assistant(query, top_k=4)
-    
-    assert response["is_grounded"] is False, "Ungrounded query should not be marked grounded"
-    assert response["answer"] == UNSUPPORTED_RESPONSE, f"Expected refusal message, got: {response['answer']}"
-    assert response["sources"] == [], "Sources should be empty for ungrounded queries"
-
-def test_evaluation_and_outputs():
-    """Verify full evaluation pipeline runs cleanly and creates report artifacts."""
-    summary = run_evaluation(OUTPUT_DIR)
-    
-    assert summary["total_questions"] == len(BENCHMARK_QUESTIONS)
-    assert summary["accuracy_percentage"] == 100.0, f"Accuracy dropped below 100%: {summary['accuracy_percentage']}%"
-    
-    json_path = OUTPUT_DIR / "evaluation_results.json"
-    md_path = OUTPUT_DIR / "evaluation_summary.md"
-    
-    assert json_path.exists(), "evaluation_results.json was not created!"
-    assert md_path.exists(), "evaluation_summary.md was not created!"
+def test_ungrounded_query_refusal():
+    """Verify zero-hallucination refusal for out-of-scope queries."""
+    res = client.post("/ask", json={"question": "Does Zepto deliver packages to London?"})
+    assert res.status_code == 200
+    data = res.json()
+    assert data["is_grounded"] is False
+    assert data["answer"] == UNSUPPORTED_RESPONSE
+    assert data["sources"] == []

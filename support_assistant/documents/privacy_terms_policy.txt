@@ -1,0 +1,20 @@
+================================================================================
+ZEPTO CUSTOMER SUPPORT POLICY: PRIVACY & DATA PROTECTION TERMS
+================================================================================
+
+1. Personal Information Collection
+
+- Zepto collects customer names, delivery addresses, phone numbers, and transactional payment history strictly to process orders and improve services.
+- Sensitive financial data (such as card CVV or UPI PIN) is never stored on Zepto servers and is processed via PCI-DSS compliant payment gateways.
+
+2. Data Sharing Limitations
+
+- Customer location data is shared with assigned delivery partners solely during active delivery fulfillment.
+- Zepto does not sell or lease customer personal data to third-party advertisers.
+
+3. Account Data Deletion Request
+
+- Customers may request full account and data deletion through App Settings > Privacy > Request Account Deletion.
+- Account deletion takes effect within 7 business days, after which non-transactional personal data is permanently purged.
+
+[DISCLAIMER: This document is synthetic policy context prepared for Zepto Support Assistant capstone evaluation.]

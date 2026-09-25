@@ -49,6 +49,8 @@ def load_documents(docs_dir: Path = DOCUMENTS_DIR) -> List[Dict[str, str]]:
     print(f"[Document Loader] Loaded {len(documents)} policy documents from '{docs_dir}'.")
     return documents
 
+load_support_documents = load_documents
+
 if __name__ == "__main__":
     docs = load_documents()
     for d in docs:
